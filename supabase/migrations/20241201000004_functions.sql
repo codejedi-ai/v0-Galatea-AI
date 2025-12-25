@@ -2,22 +2,22 @@
 CREATE OR REPLACE FUNCTION handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
-  INSERT INTO user_profiles (id, display_name, avatar_url)
+  INSERT INTO public.user_profiles (id, display_name, avatar_url)
   VALUES (
     NEW.id,
     COALESCE(NEW.raw_user_meta_data->>'full_name', NEW.raw_user_meta_data->>'name', split_part(NEW.email, '@', 1)),
     NEW.raw_user_meta_data->>'avatar_url'
   );
   
-  INSERT INTO user_stats (user_id)
+  INSERT INTO public.user_stats (user_id)
   VALUES (NEW.id);
   
-  INSERT INTO user_preferences (user_id)
+  INSERT INTO public.user_preferences (user_id)
   VALUES (NEW.id);
   
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = '';
 
 -- Trigger for new user signup
 CREATE OR REPLACE TRIGGER on_auth_user_created
@@ -28,7 +28,7 @@ CREATE OR REPLACE TRIGGER on_auth_user_created
 CREATE OR REPLACE FUNCTION update_user_stats_on_swipe()
 RETURNS TRIGGER AS $$
 BEGIN
-  UPDATE user_stats 
+  UPDATE public.user_stats 
   SET 
     total_swipes = total_swipes + 1,
     total_likes = total_likes + CASE WHEN NEW.decision = 'like' THEN 1 ELSE 0 END,
@@ -39,7 +39,7 @@ BEGIN
   
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = '';
 
 -- Trigger for swipe stats
 CREATE OR REPLACE TRIGGER on_swipe_decision_created
@@ -53,19 +53,19 @@ BEGIN
   -- Only create match if decision is like or super_like
   IF NEW.decision IN ('like', 'super_like') THEN
     -- Insert match
-    INSERT INTO matches (user_id, companion_id)
+    INSERT INTO public.matches (user_id, companion_id)
     VALUES (NEW.user_id, NEW.companion_id)
     ON CONFLICT (user_id, companion_id) DO NOTHING;
     
     -- Create conversation
-    INSERT INTO conversations (user_id, companion_id, match_id)
+    INSERT INTO public.conversations (user_id, companion_id, match_id)
     SELECT NEW.user_id, NEW.companion_id, m.id
-    FROM matches m
+    FROM public.matches m
     WHERE m.user_id = NEW.user_id AND m.companion_id = NEW.companion_id
     ON CONFLICT (user_id, companion_id) DO NOTHING;
     
     -- Update user stats
-    UPDATE user_stats 
+    UPDATE public.user_stats 
     SET 
       total_matches = total_matches + 1,
       total_conversations = total_conversations + 1,
@@ -75,7 +75,7 @@ BEGIN
   
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = '';
 
 -- Trigger for match creation
 CREATE OR REPLACE TRIGGER on_companion_like
@@ -86,7 +86,7 @@ CREATE OR REPLACE TRIGGER on_companion_like
 CREATE OR REPLACE FUNCTION update_conversation_timestamp()
 RETURNS TRIGGER AS $$
 BEGIN
-  UPDATE conversations 
+  UPDATE public.conversations 
   SET 
     last_message_at = NEW.created_at,
     updated_at = NOW()
@@ -94,7 +94,7 @@ BEGIN
   
   -- Update user stats for messages sent
   IF NEW.sender_id IS NOT NULL THEN
-    UPDATE user_stats 
+    UPDATE public.user_stats 
     SET 
       total_messages_sent = total_messages_sent + 1,
       updated_at = NOW()
@@ -103,7 +103,7 @@ BEGIN
   
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = '';
 
 -- Trigger for message timestamp
 CREATE OR REPLACE TRIGGER on_message_created
@@ -148,14 +148,14 @@ BEGIN
     c.relationship_goals,
     c.image_url,
     c.compatibility_score
-  FROM companions c
+  FROM public.companions c
   WHERE c.is_active = true
     AND c.id NOT IN (
       SELECT sd.companion_id 
-      FROM swipe_decisions sd 
+      FROM public.swipe_decisions sd 
       WHERE sd.user_id = p_user_id
     )
   ORDER BY c.compatibility_score DESC NULLS LAST, RANDOM()
   LIMIT p_limit;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = '';

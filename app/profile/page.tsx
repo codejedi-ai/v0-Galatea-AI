@@ -8,18 +8,16 @@ import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Navbar } from "@/components/navbar"
 import { ProtectedRoute } from "@/components/protected-route"
 import { LoadingSpinner } from "@/components/loading-spinner"
-import { MetaMaskConnector } from "@/components/metamask-connector"
 import { useAuth } from "@/contexts/simple-auth-context"
 import { uploadProfilePicture, deleteProfilePicture } from "@/lib/storage"
 import { createClient } from "@/utils/supabase/client"
-import { CheckCircleIcon, UserIcon, Camera, Trash2, Upload } from "lucide-react"
+import { CheckCircleIcon, AlertCircleIcon, UserIcon, Camera, Trash2, Upload } from "lucide-react"
 
 export default function Profile() {
-  const { currentUser, logout, linkWithGoogle, linkWithFacebook, unlinkProvider } = useAuth()
+  const { currentUser, logout } = useAuth()
   const router = useRouter()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [displayName, setDisplayName] = useState(currentUser?.user_metadata?.display_name || "")
@@ -27,10 +25,6 @@ export default function Profile() {
   const [isUploadingImage, setIsUploadingImage] = useState(false)
   const [successMessage, setSuccessMessage] = useState("")
   const [error, setError] = useState("")
-  const [activeTab, setActiveTab] = useState<"profile" | "security" | "accounts">("profile")
-
-  // Connected accounts state
-  const [connectedProviders, setConnectedProviders] = useState<string[]>([]);
 
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,7 +46,7 @@ export default function Profile() {
       setSuccessMessage("Profile updated successfully!")
       setTimeout(() => setSuccessMessage(""), 3000)
     } catch (err: any) {
-      showMessage(err.message || "Failed to update profile", true);
+      setError(err.message || "Failed to update profile");
     } finally {
       setIsLoading(false);
     }
@@ -116,7 +110,7 @@ export default function Profile() {
       await logout();
       router.push("/");
     } catch (err: any) {
-      showMessage(err.message || "Failed to log out", true);
+      setError(err.message || "Failed to log out");
     }
   };
 
@@ -242,15 +236,6 @@ export default function Profile() {
                 </Button>
               </div>
             </form>
-
-            {/* MetaMask Wallet Connection */}
-            <div className="mt-6 p-4 bg-gray-900/50 rounded-lg border border-gray-800">
-              <h3 className="text-sm font-medium text-white mb-3">MetaMask Wallet</h3>
-              <p className="text-xs text-gray-400 mb-4">
-                Connect your MetaMask wallet to your account. Each account can have one wallet connected.
-              </p>
-              <MetaMaskConnector showStatus={true} />
-            </div>
 
             {/* Upload instructions */}
             <div className="mt-6 p-4 bg-gray-900/50 rounded-lg border border-gray-800">
