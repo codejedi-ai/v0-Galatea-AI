@@ -2,7 +2,7 @@
 
 import type React from "react";
 
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
@@ -14,10 +14,11 @@ import { LoadingSpinner } from "@/components/loading-spinner"
 import { useAuth } from "@/contexts/simple-auth-context"
 import { uploadProfilePicture, deleteProfilePicture } from "@/lib/storage"
 import { createClient } from "@/utils/supabase/client"
+import { getUserAvatarUrl } from "@/lib/utils/avatar"
 import { CheckCircleIcon, AlertCircleIcon, UserIcon, Camera, Trash2, Upload } from "lucide-react"
 
 export default function Profile() {
-  const { currentUser, logout } = useAuth()
+  const { currentUser, logout, refreshUser } = useAuth()
   const router = useRouter()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [displayName, setDisplayName] = useState(currentUser?.user_metadata?.display_name || "")
@@ -25,6 +26,8 @@ export default function Profile() {
   const [isUploadingImage, setIsUploadingImage] = useState(false)
   const [successMessage, setSuccessMessage] = useState("")
   const [error, setError] = useState("")
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null) // Local state for immediate updates
+  const [avatarTimestamp, setAvatarTimestamp] = useState<number>(Date.now()) // For cache-busting
 
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -73,9 +76,20 @@ export default function Profile() {
     setSuccessMessage("")
 
     try {
-      await uploadProfilePicture(currentUser.id, file)
+      // Upload and get the new avatar URL immediately
+      const newAvatarUrl = await uploadProfilePicture(currentUser.id, file)
+      
+      // Update local state immediately for real-time display
+      setAvatarUrl(newAvatarUrl)
+      setAvatarTimestamp(Date.now()) // Force image reload with cache-busting
+      
+      // Refresh user data in background to sync with auth context
+      refreshUser().catch(err => console.error("Error refreshing user:", err))
+      
       setSuccessMessage("Profile picture updated successfully!")
-      setTimeout(() => setSuccessMessage(""), 3000)
+      setTimeout(() => {
+        setSuccessMessage("")
+      }, 3000)
     } catch (err: any) {
       setError(err.message || "Failed to upload profile picture")
     } finally {
@@ -95,9 +109,20 @@ export default function Profile() {
     setSuccessMessage("")
 
     try {
+      // Delete profile picture using userId
       await deleteProfilePicture(currentUser.id)
+      
+      // Clear local avatar URL immediately
+      setAvatarUrl(null)
+      setAvatarTimestamp(Date.now()) // Force image reload
+      
+      // Refresh user data in background
+      refreshUser().catch(err => console.error("Error refreshing user:", err))
+      
       setSuccessMessage("Profile picture removed successfully!")
-      setTimeout(() => setSuccessMessage(""), 3000)
+      setTimeout(() => {
+        setSuccessMessage("")
+      }, 3000)
     } catch (err: any) {
       setError(err.message || "Failed to remove profile picture")
     } finally {
@@ -118,6 +143,20 @@ export default function Profile() {
     fileInputRef.current?.click()
   }
 
+  // Update local avatar URL when currentUser changes (only if local state is null)
+  useEffect(() => {
+    if (currentUser && avatarUrl === null) {
+      getUserAvatarUrl(currentUser).then(url => {
+        if (url && url !== "/placeholder.svg") {
+          setAvatarUrl(url)
+        }
+      }).catch(err => {
+        console.debug('Error fetching avatar URL:', err)
+        setAvatarUrl(null)
+      })
+    }
+  }, [currentUser, avatarUrl])
+
   return (
     <ProtectedRoute>
       <div className="min-h-screen bg-black text-white">
@@ -128,19 +167,32 @@ export default function Profile() {
             {/* Header */}
             <div className="text-center mb-8">
               {/* Profile Picture Section */}
-              <div className="relative mx-auto h-32 w-32 mb-6">
-                <div className="relative h-full w-full rounded-full overflow-hidden bg-gray-900 border-4 border-gray-800">
-                  {currentUser?.user_metadata?.avatar_url ? (
+              <div className="relative mx-auto h-32 w-32 mb-4">
+                <div 
+                  className="relative h-full w-full rounded-full overflow-hidden bg-gray-900 border-4 border-gray-800 cursor-pointer group"
+                  onClick={triggerFileInput}
+                >
+                  {avatarUrl ? (
                     <Image
-                      src={currentUser.user_metadata.avatar_url || "/placeholder.svg"}
+                      key={`${avatarUrl}-${avatarTimestamp}`}
+                      src={`${avatarUrl}?t=${avatarTimestamp}`}
                       alt="Profile"
                       fill
                       className="object-cover"
                       sizes="128px"
+                      unoptimized
+                      priority
                     />
                   ) : (
                     <div className="h-full w-full flex items-center justify-center bg-gray-800">
                       <UserIcon className="h-16 w-16 text-gray-400" />
+                    </div>
+                  )}
+
+                  {/* Hover overlay */}
+                  {!isUploadingImage && (
+                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <Camera className="h-8 w-8 text-white" />
                     </div>
                   )}
 
@@ -154,24 +206,44 @@ export default function Profile() {
 
                 {/* Camera button */}
                 <button
-                  onClick={triggerFileInput}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    triggerFileInput()
+                  }}
                   disabled={isUploadingImage}
-                  className="absolute bottom-0 right-0 bg-teal-500 hover:bg-teal-400 text-black p-2 rounded-full shadow-lg transition-colors disabled:opacity-50"
+                  className="absolute bottom-0 right-0 bg-teal-500 hover:bg-teal-400 text-black p-2 rounded-full shadow-lg transition-colors disabled:opacity-50 z-10"
+                  title="Change profile picture"
                 >
                   <Camera className="h-4 w-4" />
                 </button>
 
                 {/* Delete button (only show if user has a photo) */}
-                {currentUser?.user_metadata?.avatar_url && (
+                {avatarUrl && (
                   <button
-                    onClick={handleDeleteImage}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleDeleteImage()
+                    }}
                     disabled={isUploadingImage}
-                    className="absolute bottom-0 left-0 bg-red-500 hover:bg-red-400 text-white p-2 rounded-full shadow-lg transition-colors disabled:opacity-50"
+                    className="absolute bottom-0 left-0 bg-red-500 hover:bg-red-400 text-white p-2 rounded-full shadow-lg transition-colors disabled:opacity-50 z-10"
+                    title="Remove profile picture"
                   >
                     <Trash2 className="h-4 w-4" />
                   </button>
                 )}
               </div>
+
+              {/* Change Picture Button */}
+              <Button
+                type="button"
+                variant="outline"
+                onClick={triggerFileInput}
+                disabled={isUploadingImage}
+                className="mb-2 border-gray-800 hover:bg-teal-500/10 hover:text-teal-400 hover:border-teal-500 text-sm"
+              >
+                <Camera className="h-4 w-4 mr-2" />
+                {avatarUrl ? "Change Picture" : "Upload Picture"}
+              </Button>
 
               {/* Hidden file input */}
               <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />

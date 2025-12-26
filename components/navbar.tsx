@@ -4,20 +4,35 @@ import { useState, useEffect } from "react"
 import { Menu, X, User, LogOut } from "lucide-react"
 import { usePathname } from "next/navigation"
 import Link from "next/link"
+import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Logo } from "@/components/logo"
 import { useAuth } from "@/contexts/simple-auth-context"
+import { getUserAvatarUrl } from "@/lib/utils/avatar"
 
 export function Navbar() {
   const [isScrolled, setIsScrolled] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [mounted, setMounted] = useState(false)
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
   const { currentUser, logout } = useAuth()
   const pathname = usePathname()
 
   useEffect(() => {
     setMounted(true)
   }, [])
+
+  useEffect(() => {
+    if (currentUser) {
+      getUserAvatarUrl(currentUser).then(url => {
+        setAvatarUrl(url)
+      }).catch(() => {
+        setAvatarUrl(null)
+      })
+    } else {
+      setAvatarUrl(null)
+    }
+  }, [currentUser])
 
   useEffect(() => {
     const handleScroll = () => {
@@ -82,11 +97,13 @@ export function Navbar() {
                 href="/dashboard"
                 className="flex items-center space-x-3 text-gray-300 hover:text-[#00FFFF] transition-colors group"
               >
-                {currentUser.user_metadata?.avatar_url ? (
-                  <img
-                    src={currentUser.user_metadata.avatar_url}
+                {avatarUrl ? (
+                  <Image
+                    src={avatarUrl}
                     alt="Profile"
-                    className="w-8 h-8 rounded-full border-2 border-[#00FFFF] group-hover:border-[#00FFFF]/80 transition-colors"
+                    width={32}
+                    height={32}
+                    className="w-8 h-8 rounded-full border-2 border-[#00FFFF] group-hover:border-[#00FFFF]/80 transition-colors object-cover"
                   />
                 ) : (
                   <div className="w-8 h-8 rounded-full bg-[#00FFFF] group-hover:bg-[#00FFFF]/80 transition-colors flex items-center justify-center">
@@ -177,11 +194,13 @@ export function Navbar() {
               ) : currentUser ? (
                 <>
                   <div className="flex items-center space-x-3 text-gray-300 py-2">
-                    {currentUser.user_metadata?.avatar_url ? (
-                      <img
-                        src={currentUser.user_metadata.avatar_url}
+                    {getUserAvatarUrl(currentUser) ? (
+                      <Image
+                        src={getUserAvatarUrl(currentUser)!}
                         alt="Profile"
-                        className="w-8 h-8 rounded-full border-2 border-[#00FFFF]"
+                        width={32}
+                        height={32}
+                        className="w-8 h-8 rounded-full border-2 border-[#00FFFF] object-cover"
                       />
                     ) : (
                       <div className="w-8 h-8 rounded-full bg-[#00FFFF] flex items-center justify-center">

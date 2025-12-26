@@ -1,75 +1,120 @@
 import { createClient } from "@/utils/supabase/client";
 
-export async function uploadImage(file: File, path: string): Promise<string> {
+const PROFILE_PICS_BUCKET = 'profile-pics';
+
+/**
+ * Upload a profile picture to the profile-pics bucket
+ * Files are stored as: {userId}/{filename}
+ * Updates the user_profile_pics table with the profile_pic_key
+ */
+export async function uploadProfilePicture(userId: string, file: File): Promise<string> {
   const supabase = createClient();
   
-  const fileExt = file.name.split('.').pop();
-  const fileName = `${Math.random()}.${fileExt}`;
-  const filePath = `${path}/${fileName}`;
-
-  const { data, error } = await supabase.storage
-    .from('images')
-    .upload(filePath, file);
-
-  if (error) {
-    throw new Error(`Failed to upload image: ${error.message}`);
+  // Validate file type
+  if (!file.type.startsWith('image/')) {
+    throw new Error('File must be an image');
   }
 
+  // Validate file size (max 5MB)
+  const maxSize = 5 * 1024 * 1024; // 5MB
+  if (file.size > maxSize) {
+    throw new Error('File size must be less than 5MB');
+  }
+
+  // Generate unique filename
+  const fileExt = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+  const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+  const filePath = `${userId}/${fileName}`;
+
+  // Delete old profile picture if exists
+  const { data: existingPic } = await supabase
+    .from('user_profile_pics')
+    .select('profile_pic_key')
+    .eq('user_id', userId)
+    .single();
+
+  if (existingPic?.profile_pic_key) {
+    try {
+      await supabase.storage
+        .from(PROFILE_PICS_BUCKET)
+        .remove([existingPic.profile_pic_key]);
+    } catch (error) {
+      console.warn('Failed to delete old profile picture:', error);
+    }
+  }
+
+  // Upload to profile-pics bucket
+  const { data, error: uploadError } = await supabase.storage
+    .from(PROFILE_PICS_BUCKET)
+    .upload(filePath, file, {
+      cacheControl: '3600',
+      upsert: false
+    });
+
+  if (uploadError) {
+    throw new Error(`Failed to upload profile picture: ${uploadError.message}`);
+  }
+
+  // Update user_profile_pics table with the profile_pic_key
+  const { error: tableError } = await supabase
+    .from('user_profile_pics')
+    .upsert({
+      user_id: userId,
+      profile_pic_key: filePath
+    }, {
+      onConflict: 'user_id'
+    });
+
+  if (tableError) {
+    // If table update fails, try to clean up the uploaded file
+    await supabase.storage.from(PROFILE_PICS_BUCKET).remove([filePath]);
+    throw new Error(`Failed to update profile picture record: ${tableError.message}`);
+  }
+
+  // Get public URL
   const { data: { publicUrl } } = supabase.storage
-    .from('images')
+    .from(PROFILE_PICS_BUCKET)
     .getPublicUrl(filePath);
 
   return publicUrl;
 }
 
-export async function deleteImage(path: string): Promise<void> {
+/**
+ * Delete a profile picture for a user
+ * Removes the file from storage and the record from user_profile_pics table
+ */
+export async function deleteProfilePicture(userId: string): Promise<void> {
   const supabase = createClient();
   
-  const { error } = await supabase.storage
-    .from('images')
-    .remove([path]);
+  // Get the profile_pic_key from the table
+  const { data: profilePic, error: fetchError } = await supabase
+    .from('user_profile_pics')
+    .select('profile_pic_key')
+    .eq('user_id', userId)
+    .single();
 
-  if (error) {
-    throw new Error(`Failed to delete image: ${error.message}`);
+  if (fetchError || !profilePic?.profile_pic_key) {
+    // No profile picture to delete
+    return;
   }
-}
 
-export async function uploadProfilePicture(userId: string, file: File): Promise<string> {
-  // Store under images/profiles/{userId}/random.ext
-  // Uses the existing uploadImage helper which targets the 'images' bucket.
-  return uploadImage(file, `profiles/${userId}`);
-}
+  // Remove the file from storage
+  const { error: storageError } = await supabase.storage
+    .from(PROFILE_PICS_BUCKET)
+    .remove([profilePic.profile_pic_key]);
 
-/**
- * Accepts either a storage path like "profiles/{userId}/file.png"
- * or a public URL like
- * https://{project}.supabase.co/storage/v1/object/public/images/profiles/{userId}/file.png
- * and deletes the file from the 'images' bucket.
- */
-export async function deleteProfilePicture(storagePathOrPublicUrl: string): Promise<void> {
-  // Try to normalize a public URL into a path within the 'images' bucket
-  const normalizeToBucketPath = (input: string): string => {
-    // If a full URL was provided, convert to pathname
-    let path = input;
-    try {
-      const url = new URL(input);
-      path = url.pathname;
-    } catch {
-      // not a URL; keep as-is
-    }
+  if (storageError) {
+    throw new Error(`Failed to delete profile picture from storage: ${storageError.message}`);
+  }
 
-    // Look for the public images prefix
-    const publicPrefix = "/storage/v1/object/public/images/";
-    const idx = path.indexOf(publicPrefix);
-    if (idx !== -1) {
-      return path.substring(idx + publicPrefix.length);
-    }
+  // Remove the record from user_profile_pics table
+  const { error: tableError } = await supabase
+    .from('user_profile_pics')
+    .delete()
+    .eq('user_id', userId);
 
-    // If the path already starts with "images/", strip it so deleteImage()
-    // doesn't end up with "images/images/..."
-    return path.replace(/^images\//, "");
-  };
-
-  const bucketPath = normalizeToBucketPath(storagePathOrPublicUrl);
-  await deleteImage(bucketPath);
+  if (tableError) {
+    console.error('Failed to delete profile picture record:', tableError);
+    // Don't throw here since the file is already deleted
+  }
 }

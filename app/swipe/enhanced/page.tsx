@@ -12,7 +12,7 @@ import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { useToast } from "@/components/ui/use-toast"
 import { createClient } from "@/utils/supabase/client"
-import { recordSwipeDecision } from "@/lib/database/swipes"
+import { processSwipeDecision } from "@/lib/database/swipes"
 
 interface AICompanion {
   id: string
@@ -123,31 +123,29 @@ export default function EnhancedSwipePage() {
         decision = 'pass'
       }
 
-      // Record swipe decision
-      await recordSwipeDecision(currentCompanion.id, decision)
+      // Process swipe decision (includes match creation)
+      const result = await processSwipeDecision(currentCompanion.id, decision)
 
-      if (decision === 'like' || decision === 'super_like') {
-        setMatches(prev => [...prev, currentCompanion.id])
-        
-        // Check if match was created
-        const supabase = createClient()
-        const { data: { user } } = await supabase.auth.getUser()
-        
-        const { data: match } = await supabase
-          .from('matches')
-          .select('id')
-          .eq('user_id', user?.id)
-          .eq('companion_id', currentCompanion.id)
-          .single()
-
-        if (match) {
-          toast({
-            title: "🎉 It's a Match!",
-            description: `You matched with ${currentCompanion.name}! Start chatting now.`,
-          })
+      if (result.success) {
+        if (decision === 'like' || decision === 'super_like') {
+          setMatches(prev => [...prev, currentCompanion.id])
+          
+          if (result.is_match) {
+            toast({
+              title: "🎉 It's a Match!",
+              description: `You matched with ${currentCompanion.name}! Start chatting now.`,
+            })
+          } else {
+            toast({
+              title: "Liked!",
+              description: `You liked ${currentCompanion.name}.`,
+            })
+          }
+        } else {
+          setRejections(prev => [...prev, currentCompanion.id])
         }
       } else {
-        setRejections(prev => [...prev, currentCompanion.id])
+        throw new Error(result.error || "Failed to process swipe")
       }
 
       // Move to next companion

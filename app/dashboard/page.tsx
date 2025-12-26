@@ -3,17 +3,20 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
+import Image from "next/image"
 import { Navbar } from "@/components/navbar"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { LoadingSpinner } from "@/components/loading-spinner"
 import { useAuth } from "@/contexts/simple-auth-context"
+import { getUserAvatarUrl } from "@/lib/utils/avatar"
 import { Users, MessageCircle, Heart, TrendingUp } from "lucide-react"
 
 export default function Dashboard() {
   const { currentUser, loading } = useAuth()
   const router = useRouter()
   const [mounted, setMounted] = useState(false)
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
 
   useEffect(() => {
     setMounted(true)
@@ -24,6 +27,22 @@ export default function Dashboard() {
       router.push("/sign-in")
     }
   }, [currentUser, loading, router, mounted])
+
+  useEffect(() => {
+    if (currentUser) {
+      getUserAvatarUrl(currentUser)
+        .then(url => {
+          setAvatarUrl(url)
+        })
+        .catch(err => {
+          // Silently handle errors - just show placeholder
+          console.debug('Error fetching avatar:', err)
+          setAvatarUrl(null)
+        })
+    } else {
+      setAvatarUrl(null)
+    }
+  }, [currentUser])
 
   if (!mounted || loading) {
     return (
@@ -45,11 +64,13 @@ export default function Dashboard() {
         {/* Welcome Section */}
         <div className="text-center mb-12">
           <div className="mb-6">
-            {currentUser.user_metadata?.avatar_url ? (
-              <img
-                src={currentUser.user_metadata.avatar_url}
+            {avatarUrl ? (
+              <Image
+                src={avatarUrl}
                 alt="Profile"
-                className="w-24 h-24 rounded-full border-4 border-teal-500 mx-auto mb-4"
+                width={96}
+                height={96}
+                className="w-24 h-24 rounded-full border-4 border-teal-500 mx-auto mb-4 object-cover"
               />
             ) : (
               <div className="w-24 h-24 rounded-full bg-teal-500 flex items-center justify-center mx-auto mb-4">

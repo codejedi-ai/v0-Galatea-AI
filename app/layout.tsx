@@ -11,22 +11,7 @@ export const metadata: Metadata = {
   description: 'Connect with sophisticated AI companions for meaningful conversations, emotional support, and confidence building.',
   generator: 'Galatea.AI',
   icons: {
-    icon: [
-      { url: '/favicon-light.png', sizes: '32x32', type: 'image/png', media: '(prefers-color-scheme: light)' },
-      { url: '/favicon-light.png', sizes: '16x16', type: 'image/png', media: '(prefers-color-scheme: light)' },
-      { url: '/favicon-dark.png', sizes: '32x32', type: 'image/png', media: '(prefers-color-scheme: dark)' },
-      { url: '/favicon-dark.png', sizes: '16x16', type: 'image/png', media: '(prefers-color-scheme: dark)' },
-      { url: '/favicon-light.png', sizes: '32x32', type: 'image/png' }, // fallback
-    ],
-    apple: [
-      { url: '/favicon-light.png', sizes: '180x180', type: 'image/png' },
-    ],
-    other: [
-      {
-        rel: 'icon',
-        url: '/favicon-light.png',
-      },
-    ],
+    icon: '/favicon.ico',
   },
 }
 
@@ -38,12 +23,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        <link rel="icon" type="image/png" sizes="32x32" href="/favicon-light.png" media="(prefers-color-scheme: light)" />
-        <link rel="icon" type="image/png" sizes="16x16" href="/favicon-light.png" media="(prefers-color-scheme: light)" />
-        <link rel="icon" type="image/png" sizes="32x32" href="/favicon-dark.png" media="(prefers-color-scheme: dark)" />
-        <link rel="icon" type="image/png" sizes="16x16" href="/favicon-dark.png" media="(prefers-color-scheme: dark)" />
-        <link rel="icon" type="image/png" sizes="32x32" href="/favicon-light.png" />
-        <link rel="apple-touch-icon" sizes="180x180" href="/favicon-light.png" />
+        <link rel="icon" href="/favicon.ico" type="image/x-icon" />
         <SupabaseConfigScript />
         <style>{`
 html {

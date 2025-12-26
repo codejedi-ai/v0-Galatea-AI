@@ -10,6 +10,28 @@ export interface Match {
   companion?: Companion
 }
 
+export interface MatchWithDetails {
+  match_id: string
+  matched_at: string
+  companion: {
+    id: string
+    name: string
+    age: number
+    bio: string
+    image_url: string
+    personality: string
+    interests: string[]
+    compatibility_score?: number
+  }
+  conversation_id?: string
+  last_message?: {
+    content: string
+    created_at: string
+    sender_id?: string
+  }
+  unread_count: number
+}
+
 export async function getUserMatches(): Promise<Match[]> {
   const supabase = createClient()
 
@@ -33,6 +55,49 @@ export async function getUserMatches(): Promise<Match[]> {
   }
 
   return data || []
+}
+
+export async function getUserMatchesWithDetails(): Promise<MatchWithDetails[]> {
+  const supabase = createClient()
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) throw new Error("User not authenticated")
+
+  // Use the database function for better performance
+  const { data, error } = await supabase.rpc("get_user_matches_with_details", {
+    p_user_id: user.id,
+  })
+
+  if (error) {
+    throw new Error(`Failed to fetch matches with details: ${error.message}`)
+  }
+
+  // Transform the data to match our interface
+  return (data || []).map((row: any) => ({
+    match_id: row.match_id,
+    matched_at: row.matched_at,
+    companion: {
+      id: row.companion_id,
+      name: row.companion_name,
+      age: row.companion_age,
+      bio: row.companion_bio,
+      image_url: row.companion_image_url,
+      personality: row.companion_personality,
+      interests: row.companion_interests || [],
+      compatibility_score: row.companion_compatibility_score,
+    },
+    conversation_id: row.conversation_id || undefined,
+    last_message: row.last_message_content
+      ? {
+          content: row.last_message_content,
+          created_at: row.last_message_created_at,
+          sender_id: row.last_message_sender_id || undefined,
+        }
+      : undefined,
+    unread_count: Number(row.unread_count) || 0,
+  }))
 }
 
 export async function getMatchById(matchId: string): Promise<Match | null> {
