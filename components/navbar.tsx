@@ -73,8 +73,8 @@ export function Navbar() {
             <Link href="/profile" className="text-gray-300 hover:text-[#00FFFF] transition-colors">
               Profile
             </Link>
-            <Link href="/discover" className="text-gray-300 hover:text-[#00FFFF] transition-colors">
-              Discover
+            <Link href="/swipe" className="text-gray-300 hover:text-[#00FFFF] transition-colors">
+              Swipe
             </Link>
             <Link href="/matches" className="text-gray-300 hover:text-[#00FFFF] transition-colors">
               Matches
@@ -165,11 +165,11 @@ export function Navbar() {
                   Profile
                 </Link>
                 <Link
-                  href="/discover"
+                  href="/swipe"
                   className="text-gray-300 hover:text-[#00FFFF] transition-colors py-2"
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
-                  Discover
+                  Swipe
                 </Link>
                 <Link
                   href="/matches"
@@ -194,9 +194,9 @@ export function Navbar() {
               ) : currentUser ? (
                 <>
                   <div className="flex items-center space-x-3 text-gray-300 py-2">
-                    {getUserAvatarUrl(currentUser) ? (
+                    {avatarUrl ? (
                       <Image
-                        src={getUserAvatarUrl(currentUser)!}
+                        src={avatarUrl}
                         alt="Profile"
                         width={32}
                         height={32}

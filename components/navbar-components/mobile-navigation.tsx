@@ -57,7 +57,7 @@ export function MobileNavigation({
               className="text-gray-300 hover:text-teal-400 transition-colors py-2"
               onClick={closeMobileMenu}
             >
-              Discover
+              Swipe
             </Link>
           </>
         )}
