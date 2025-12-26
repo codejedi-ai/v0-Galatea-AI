@@ -120,17 +120,17 @@ BEGIN
   LEFT JOIN public.conversations conv ON conv.user_id = m.user_id AND conv.companion_id = m.companion_id
   LEFT JOIN LATERAL (
     SELECT content, created_at, sender_id
-    FROM public.messages
-    WHERE conversation_id = conv.id
-    ORDER BY created_at DESC
+    FROM public.messages msg1
+    WHERE msg1.conversation_id = conv.id
+    ORDER BY msg1.created_at DESC
     LIMIT 1
   ) last_msg ON true
   LEFT JOIN LATERAL (
     SELECT COUNT(*)::BIGINT AS count
-    FROM public.messages
-    WHERE conversation_id = conv.id
-      AND is_read = false
-      AND sender_id IS NULL
+    FROM public.messages msg2
+    WHERE msg2.conversation_id = conv.id
+      AND msg2.is_read = false
+      AND msg2.sender_id IS NULL
   ) unread ON true
   WHERE m.user_id = p_user_id
     AND m.is_active = true

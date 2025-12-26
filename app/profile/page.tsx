@@ -16,6 +16,13 @@ import { uploadProfilePicture, deleteProfilePicture } from "@/lib/storage"
 import { createClient } from "@/utils/supabase/client"
 import { getUserAvatarUrl } from "@/lib/utils/avatar"
 import { CheckCircleIcon, AlertCircleIcon, UserIcon, Camera, Trash2, Upload } from "lucide-react"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 
 export default function Profile() {
   const { currentUser, logout, refreshUser } = useAuth()
@@ -28,6 +35,7 @@ export default function Profile() {
   const [error, setError] = useState("")
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null) // Local state for immediate updates
   const [avatarTimestamp, setAvatarTimestamp] = useState<number>(Date.now()) // For cache-busting
+  const [showChangePictureDialog, setShowChangePictureDialog] = useState(false)
 
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -143,6 +151,20 @@ export default function Profile() {
     fileInputRef.current?.click()
   }
 
+  const handleProfilePictureClick = () => {
+    setShowChangePictureDialog(true)
+  }
+
+  const handleUploadClick = () => {
+    setShowChangePictureDialog(false)
+    triggerFileInput()
+  }
+
+  const handleDeleteClick = async () => {
+    setShowChangePictureDialog(false)
+    await handleDeleteImage()
+  }
+
   // Update local avatar URL when currentUser changes (only if local state is null)
   useEffect(() => {
     if (currentUser && avatarUrl === null) {
@@ -170,7 +192,7 @@ export default function Profile() {
               <div className="relative mx-auto h-32 w-32 mb-4">
                 <div 
                   className="relative h-full w-full rounded-full overflow-hidden bg-gray-900 border-4 border-gray-800 cursor-pointer group"
-                  onClick={triggerFileInput}
+                  onClick={handleProfilePictureClick}
                 >
                   {avatarUrl ? (
                     <Image
@@ -204,46 +226,7 @@ export default function Profile() {
                   )}
                 </div>
 
-                {/* Camera button */}
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    triggerFileInput()
-                  }}
-                  disabled={isUploadingImage}
-                  className="absolute bottom-0 right-0 bg-teal-500 hover:bg-teal-400 text-black p-2 rounded-full shadow-lg transition-colors disabled:opacity-50 z-10"
-                  title="Change profile picture"
-                >
-                  <Camera className="h-4 w-4" />
-                </button>
-
-                {/* Delete button (only show if user has a photo) */}
-                {avatarUrl && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      handleDeleteImage()
-                    }}
-                    disabled={isUploadingImage}
-                    className="absolute bottom-0 left-0 bg-red-500 hover:bg-red-400 text-white p-2 rounded-full shadow-lg transition-colors disabled:opacity-50 z-10"
-                    title="Remove profile picture"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                )}
               </div>
-
-              {/* Change Picture Button */}
-              <Button
-                type="button"
-                variant="outline"
-                onClick={triggerFileInput}
-                disabled={isUploadingImage}
-                className="mb-2 border-gray-800 hover:bg-teal-500/10 hover:text-teal-400 hover:border-teal-500 text-sm"
-              >
-                <Camera className="h-4 w-4 mr-2" />
-                {avatarUrl ? "Change Picture" : "Upload Picture"}
-              </Button>
 
               {/* Hidden file input */}
               <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
@@ -328,6 +311,49 @@ export default function Profile() {
         </main>
 
         <div className="absolute bottom-0 left-0 right-0 h-1/3 bg-gradient-to-t from-gray-950 to-transparent -z-10"></div>
+
+        {/* Change Profile Picture Dialog */}
+        <Dialog open={showChangePictureDialog} onOpenChange={setShowChangePictureDialog}>
+          <DialogContent className="bg-gray-900 border-gray-700 text-white sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="text-white">Change Profile Picture</DialogTitle>
+              <DialogDescription className="text-gray-400">
+                Choose an option to update your profile picture
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-3 py-4">
+              <Button
+                type="button"
+                onClick={handleUploadClick}
+                disabled={isUploadingImage}
+                className="w-full bg-teal-500 text-black hover:bg-teal-400 justify-start"
+              >
+                <Camera className="h-4 w-4 mr-2" />
+                {avatarUrl ? "Upload New Picture" : "Upload Picture"}
+              </Button>
+              {avatarUrl && (
+                <Button
+                  type="button"
+                  onClick={handleDeleteClick}
+                  disabled={isUploadingImage}
+                  variant="outline"
+                  className="w-full border-red-500 text-red-400 hover:bg-red-500/10 hover:text-red-300 justify-start"
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Remove Current Picture
+                </Button>
+              )}
+              <Button
+                type="button"
+                onClick={() => setShowChangePictureDialog(false)}
+                variant="outline"
+                className="w-full border-gray-600 text-gray-300 hover:bg-gray-800"
+              >
+                Cancel
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </ProtectedRoute>
   );

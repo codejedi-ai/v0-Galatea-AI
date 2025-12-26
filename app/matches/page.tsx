@@ -127,7 +127,7 @@ export default function MatchesPage() {
                   <Filter className="h-5 w-5 text-gray-400" />
                 </Button>
                 <Button asChild className="bg-teal-500 text-black hover:bg-teal-400">
-                  <Link href="/swipe/enhanced">Keep Swiping</Link>
+                  <Link href="/swipe">Keep Swiping</Link>
                 </Button>
               </div>
             </div>
@@ -197,7 +197,7 @@ export default function MatchesPage() {
                   }
                 </p>
                 <Button asChild className="bg-teal-500 text-black hover:bg-teal-400">
-                  <Link href="/swipe/enhanced">Start Swiping</Link>
+                  <Link href="/swipe">Start Swiping</Link>
                 </Button>
               </div>
             ) : (
@@ -328,7 +328,7 @@ export default function MatchesPage() {
                   Keep swiping to discover more AI companions that match your interests
                 </p>
                 <Button asChild className="bg-teal-500 text-black hover:bg-teal-400">
-                  <Link href="/swipe/enhanced">Continue Swiping</Link>
+                  <Link href="/swipe">Continue Swiping</Link>
                 </Button>
               </div>
             )}
